@@ -1,5 +1,7 @@
 # Asynchronous Real-Time Analytics & Event Processing Engine
 
+**Live Demo**: [https://event-processing-engine.onrender.com/](https://event-processing-engine.onrender.com/) *(Note: Render free tier containers sleep after 15 minutes of inactivity; please allow ~1 minute for the initial spin-up).*
+
 A production-grade, highly concurrent event ingestion and real-time processing backend built using **FastAPI**, **PostgreSQL**, **Redis**, **Celery**, and **Docker**.
 
 This system is designed as an SDE resume/portfolio project showing enterprise-level architecture: domain-driven structure, asynchronous ORM persistence, rolling hot-path analytics caching, horizontal WebSocket scaling via Redis Pub/Sub, background worker processing, and multi-stage Docker builds.
