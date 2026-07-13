@@ -1,8 +1,9 @@
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.auth.models import User
 from app.auth.dependencies import get_current_user, get_current_user_websocket
@@ -18,6 +19,7 @@ router = APIRouter(prefix="/events", tags=["events"])
 @router.post("/ingest", response_model=EventOut, status_code=status.HTTP_201_CREATED)
 async def ingest_event(
     event_in: EventCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -29,11 +31,16 @@ async def ingest_event(
     # Create the event record in DB & Redis
     db_event = await create_event_record(db, event_in, user_id=current_user.id)
     
-    # Offload log validation and anomaly analysis to Celery background task
-    try:
-        validate_event_logs.delay(db_event.id, db_event.payload)
-    except Exception as e:
-        logger.warning(f"Could not queue Celery task for event {db_event.id}: {e}. Celery worker might be offline.")
+    # Check if we should use Celery (production) or local BackgroundTasks (fallback)
+    if "sqlite" in settings.DATABASE_URL:
+        # SQLite fallback: run locally in background to avoid Celery broker connection timeout
+        background_tasks.add_task(validate_event_logs, db_event.id, db_event.payload)
+    else:
+        # Production: dispatch to Celery worker processes
+        try:
+            validate_event_logs.delay(db_event.id, db_event.payload)
+        except Exception as e:
+            logger.warning(f"Could not queue Celery task for event {db_event.id}: {e}. Celery worker might be offline.")
 
     return db_event
 
