@@ -383,8 +383,9 @@
             
             const hasProcessing = eventObj.payload && eventObj.payload._processing;
             const anomalyDetected = hasProcessing && eventObj.payload._processing.anomaly_detected;
+            const clientSideAnomaly = eventObj.event_type === "payment.processed" && eventObj.payload && eventObj.payload.value >= 10000;
 
-            if (anomalyDetected) {
+            if (anomalyDetected || clientSideAnomaly) {
                 colorClass = "text-rose-400 font-extrabold animate-pulse bg-rose-950/20 px-1.5 py-0.5 rounded border border-rose-900/30";
                 prefix = "[CRITICAL ANOMALY ALERT]";
             } else if (eventObj.event_type === "payment.processed") {
