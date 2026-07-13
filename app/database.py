@@ -6,6 +6,8 @@ from app.config import settings
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+    connect_args["timeout"] = 30  # Prevent "database is locked" errors under concurrent writes
+
 
 engine = create_async_engine(
     settings.DATABASE_URL,
