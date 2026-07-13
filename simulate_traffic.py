@@ -3,7 +3,7 @@ import random
 import sys
 import httpx
 
-API_URL = "http://localhost:8000/api/v1"
+API_URL = "https://event-processing-engine.onrender.com/api/v1"
 
 async def simulate_traffic(num_requests: int = 150):
     """

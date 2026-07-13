@@ -58,7 +58,13 @@ async def create_event_record(db: AsyncSession, event_in: EventCreate, user_id: 
         logger.error(f"Failed to update Redis hot-path metrics: {e}")
 
     # 3. Publish to Redis Pub/Sub so all connected WebSocket clients on all servers get the event
-    await publish_event("events_channel", event_payload)
+    published = await publish_event("events_channel", event_payload)
+    if published == -1:
+        # Fallback to local memory broadcast if Redis is offline/unreachable
+        logger.warning("Redis is unreachable. Falling back to local WebSocket memory broadcast.")
+        from app.events.manager import manager
+        await manager.broadcast(event_payload)
+
 
     return db_event
 

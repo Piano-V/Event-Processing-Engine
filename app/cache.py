@@ -71,4 +71,5 @@ async def publish_event(channel: str, message: Any) -> int:
         return await client.publish(channel, payload)
     except Exception as e:
         logger.error(f"Redis publish_event error on channel {channel}: {e}")
-        return 0
+        return -1
+
