@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowStream | Real-Time Event Processing Console</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#020617',
+                        cardbg: 'rgba(15, 23, 42, 0.7)',
+                        cyanaccent: '#06b6d4',
+                        indigoaccent: '#6366f1',
+                        emeraldaccent: '#10b981',
+                        roseaccent: '#f43f5e',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+        .glow-indigo {
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased">
+    
+    <!-- Header Navigation -->
+    <header class="glass border-b border-slate-900 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="h-3 w-3 rounded-full bg-cyan-400 animate-pulse"></div>
+            <h1 class="text-lg font-extrabold tracking-wider bg-gradient-to-r from-cyan-400 via-indigo-400 to-violet-400 bg-clip-text text-transparent">
+                FLOWSTREAM ANALYTICS CONSOLE
+            </h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <span id="connection-status" class="px-3 py-1 rounded-full text-xs font-semibold bg-red-950/80 text-red-400 border border-red-900/50 flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-red-500"></span> Offline
+            </span>
+            <button id="logout-btn" class="hidden text-sm bg-slate-900 hover:bg-slate-800 px-4 py-1.5 rounded-lg transition border border-slate-800 text-slate-300">
+                Sign Out
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Section -->
+    <main class="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full flex flex-col gap-6">
+        
+        <!-- Authenticated Portal View -->
+        <section id="auth-container" class="glass rounded-2xl p-8 max-w-md mx-auto w-full my-auto flex flex-col gap-6 shadow-2xl transition duration-300">
+            <div class="text-center">
+                <h2 class="text-2xl font-bold text-white tracking-tight">Developer Portal</h2>
+                <p class="text-sm text-slate-400 mt-2">Sign in to start ingestion stream monitoring.</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-lg border border-slate-900">
+                <button id="tab-login" class="py-1.5 text-sm font-semibold rounded-md bg-indigo-600 text-white transition">Login</button>
+                <button id="tab-register" class="py-1.5 text-sm font-semibold rounded-md text-slate-400 hover:text-white transition">Register</button>
+            </div>
+
+            <form id="auth-form" class="flex flex-col gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Username</label>
+                    <input type="text" id="auth-username" required minlength="3" class="w-full bg-slate-950 border border-slate-900 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
+                    <input type="password" id="auth-password" required minlength="6" class="w-full bg-slate-950 border border-slate-900 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+                <button type="submit" id="auth-submit-btn" class="w-full mt-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-cyan-500/20 transition duration-300">
+                    Sign In
+                </button>
+                <p id="auth-error" class="text-xs text-red-400 mt-1 text-center hidden"></p>
+            </form>
+        </section>
+
+        <!-- Dashboard Panel -->
+        <section id="dashboard-container" class="hidden flex flex-col gap-6">
+            
+            <!-- Cards Section -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                
+                <div class="glass p-5 rounded-2xl flex flex-col gap-1 glow-indigo">
+                    <span class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Ingested Events</span>
+                    <span id="stat-total" class="text-3xl font-extrabold text-white">0</span>
+                    <span class="text-xs text-slate-500 mt-1">Total persisted database rows</span>
+                </div>
+
+                <div class="glass p-5 rounded-2xl flex flex-col gap-1">
+                    <span class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Ingestion Rate</span>
+                    <span id="stat-rate" class="text-3xl font-extrabold text-cyan-400">0.0<span class="text-sm font-normal text-slate-400">/s</span></span>
+                    <span class="text-xs text-slate-500 mt-1">Real-time throughput metrics</span>
+                </div>
+
+                <div class="glass p-5 rounded-2xl flex flex-col gap-1 glow-cyan">
+                    <span class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Active Users (Hour)</span>
+                    <span id="stat-active" class="text-3xl font-extrabold text-indigo-400">0</span>
+                    <span class="text-xs text-slate-500 mt-1">Sliding-window counter (Redis ZSET)</span>
+                </div>
+
+                <div class="glass p-5 rounded-2xl flex flex-col gap-1">
+                    <span class="text-xs font-semibold text-slate-400 tracking-wider uppercase">Redis Node Memory</span>
+                    <span id="stat-redis-mem" class="text-3xl font-extrabold text-emerald-400">0.0 B</span>
+                    <span id="stat-redis-clients" class="text-xs text-slate-500 mt-1">0 pool client connections</span>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Line Chart (Real-time Ingest Rate) -->
+                <div class="glass p-5 rounded-2xl md:col-span-2 flex flex-col gap-3 min-h-[350px]">
+                    <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Event Ingestion Throughput (Live)</h3>
+                    <div class="flex-1 relative">
+                        <canvas id="throughputChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Event Type Distribution Chart -->
+                <div class="glass p-5 rounded-2xl flex flex-col gap-3 min-h-[350px]">
+                    <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Event Type Breakdown</h3>
+                    <div class="flex-1 relative flex items-center justify-center">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stream Simulation and Log Console -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <!-- Quick Event Ingestion Controls -->
+                <div class="glass p-5 rounded-2xl flex flex-col gap-4">
+                    <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Simulate API Request Events</h3>
+                    <p class="text-xs text-slate-400">Directly post test events into the pipeline to test processing logic.</p>
+                    
+                    <div class="flex flex-col gap-2">
+                        <button onclick="postTestEvent('user.signup')" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs transition border border-slate-800 font-semibold flex justify-between px-4">
+                            <span>Register New User Signup</span>
+                            <span class="text-slate-400">user.signup</span>
+                        </button>
+                        
+                        <button onclick="postTestEvent('page.view')" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs transition border border-slate-800 font-semibold flex justify-between px-4">
+                            <span>Ingest Page Navigation</span>
+                            <span class="text-slate-400">page.view</span>
+                        </button>
+
+                        <button onclick="postTestEvent('payment.processed', 250)" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs transition border border-slate-800 font-semibold flex justify-between px-4">
+                            <span>Process Normal Payment</span>
+                            <span class="text-emerald-400">$250.00</span>
+                        </button>
+
+                        <button onclick="postTestEvent('payment.processed', 15000)" class="w-full py-2.5 bg-rose-950/20 hover:bg-rose-900/20 text-rose-300 rounded-lg text-xs transition border border-rose-900/50 font-semibold flex justify-between px-4">
+                            <span>Trigger High-Value Anomaly!</span>
+                            <span class="text-rose-400">$15,000.00</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Streaming Log Console -->
+                <div class="glass p-5 rounded-2xl md:col-span-2 flex flex-col gap-3 min-h-[300px]">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase">Live Stream Log Console</h3>
+                        <span class="text-[9px] bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">Broker Channel: events_channel</span>
+                    </div>
+                    <div id="log-console" class="flex-1 bg-slate-950 border border-slate-900/50 rounded-xl p-4 font-mono text-[11px] text-cyan-400 overflow-y-auto custom-scroll flex flex-col gap-2 max-h-[250px]">
+                        <div class="text-slate-600">[System]: Console initialized. Subscribed to stream...</div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Client Script -->
+    <script>
+        let accessToken = localStorage.getItem("access_token");
+        let wsConn = null;
+        let authMode = "login";
+        let totalEvents = 0;
+        let activeUsers = 0;
+        let eventTypesCount = {};
+        
+        let localEventCountLastSec = 0;
+        let throughputHistory = Array(20).fill(0);
+        let throughputLabels = Array(20).fill("");
+
+        let throughputChartInstance = null;
+        let distributionChartInstance = null;
+
+        const authContainer = document.getElementById("auth-container");
+        const dashboardContainer = document.getElementById("dashboard-container");
+        const authForm = document.getElementById("auth-form");
+        const authUsernameInput = document.getElementById("auth-username");
+        const authPasswordInput = document.getElementById("auth-password");
+        const authSubmitBtn = document.getElementById("auth-submit-btn");
+        const authError = document.getElementById("auth-error");
+        const tabLogin = document.getElementById("tab-login");
+        const tabRegister = document.getElementById("tab-register");
+        const connectionStatus = document.getElementById("connection-status");
+        const logoutBtn = document.getElementById("logout-btn");
+        const statTotal = document.getElementById("stat-total");
+        const statActive = document.getElementById("stat-active");
+        const statRate = document.getElementById("stat-rate");
+        const logConsole = document.getElementById("log-console");
+
+        tabLogin.addEventListener("click", () => {
+            authMode = "login";
+            tabLogin.className = "py-1.5 text-sm font-semibold rounded-md bg-indigo-600 text-white transition";
+            tabRegister.className = "py-1.5 text-sm font-semibold rounded-md text-slate-400 hover:text-white transition";
+            authSubmitBtn.innerText = "Sign In";
+            authError.classList.add("hidden");
+        });
+
+        tabRegister.addEventListener("click", () => {
+            authMode = "register";
+            tabRegister.className = "py-1.5 text-sm font-semibold rounded-md bg-indigo-600 text-white transition";
+            tabLogin.className = "py-1.5 text-sm font-semibold rounded-md text-slate-400 hover:text-white transition";
+            authSubmitBtn.innerText = "Register Account";
+            authError.classList.add("hidden");
+        });
+
+        authForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            authError.classList.add("hidden");
+            const username = authUsernameInput.value;
+            const password = authPasswordInput.value;
+
+            try {
+                if (authMode === "register") {
+                    const response = await fetch("/api/v1/auth/register", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.detail || "Registration failed");
+                    authMode = "login";
+                }
+
+                const formData = new URLSearchParams();
+                formData.append("username", username);
+                formData.append("password", password);
+
+                const response = await fetch("/api/v1/auth/token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || "Login failed");
+
+                localStorage.setItem("access_token", data.access_token);
+                accessToken = data.access_token;
+                
+                authUsernameInput.value = "";
+                authPasswordInput.value = "";
+                initDashboard();
+            } catch (err) {
+                authError.innerText = err.message;
+                authError.classList.remove("hidden");
+            }
+        });
+
+        logoutBtn.addEventListener("click", () => {
+            localStorage.removeItem("access_token");
+            accessToken = null;
+            if (wsConn) wsConn.close();
+            showAuth();
+        });
+
+        function showAuth() {
+            authContainer.classList.remove("hidden");
+            dashboardContainer.classList.add("hidden");
+            logoutBtn.classList.add("hidden");
+        }
+
+        async function initDashboard() {
+            authContainer.classList.add("hidden");
+            dashboardContainer.classList.remove("hidden");
+            logoutBtn.classList.remove("hidden");
+            await fetchAnalyticsSummary();
+            setupCharts();
+            connectWebSocket();
+        }
+
+        async function fetchAnalyticsSummary() {
+            try {
+                const res = await fetch("/api/v1/events/analytics", {
+                    headers: { "Authorization": `Bearer ${accessToken}` }
+                });
+                if (res.status === 401) {
+                    logoutBtn.click();
+                    return;
+                }
+                const data = await res.json();
+                
+                totalEvents = data.total_events;
+                activeUsers = data.active_users_last_hour;
+                eventTypesCount = data.event_types;
+
+                statTotal.innerText = totalEvents;
+                statActive.innerText = activeUsers;
+
+                // Update Redis metrics
+                if (data.system_metrics) {
+                    document.getElementById("stat-redis-mem").innerText = data.system_metrics.redis_memory_used || "0.0 B";
+                    document.getElementById("stat-redis-clients").innerText = `${data.system_metrics.redis_connected_clients || 0} active pool client connections`;
+                }
+            } catch (err) {
+                console.error("Error fetching initial analytics", err);
+            }
+        }
+
+        function connectWebSocket() {
+            const loc = window.location;
+            const wsProto = loc.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${wsProto}//${loc.host}/api/v1/events/stream?token=${accessToken}`;
+            
+            wsConn = new WebSocket(wsUrl);
+
+            wsConn.onopen = () => {
+                connectionStatus.innerHTML = `<span class="h-2 w-2 rounded-full bg-cyan-400 animate-ping"></span> Live Connected`;
+                connectionStatus.className = "px-3 py-1 rounded-full text-xs font-semibold bg-cyan-950/80 text-cyan-400 border border-cyan-800/50 flex items-center gap-1.5";
+                logConsole.innerHTML += `<div class="text-indigo-400">[System]: WebSocket connection established. Listening to broker...</div>`;
+                logConsole.scrollTop = logConsole.scrollHeight;
+            };
+
+            wsConn.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    totalEvents++;
+                    localEventCountLastSec++;
+                    statTotal.innerText = totalEvents;
+
+                    const etype = data.event_type;
+                    eventTypesCount[etype] = (eventTypesCount[etype] || 0) + 1;
+                    updateDistributionChart();
+                    printConsoleLog(data);
+                } catch (e) {
+                    console.error("Failed to parse websocket message", e);
+                }
+            };
+
+            wsConn.onclose = () => {
+                connectionStatus.innerHTML = `<span class="h-2 w-2 rounded-full bg-red-500"></span> Offline`;
+                connectionStatus.className = "px-3 py-1 rounded-full text-xs font-semibold bg-red-950/80 text-red-400 border border-red-800/50 flex items-center gap-1.5";
+                logConsole.innerHTML += `<div class="text-red-400">[System]: Connection closed. Retrying connection...</div>`;
+                logConsole.scrollTop = logConsole.scrollHeight;
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        function printConsoleLog(eventObj) {
+            let colorClass = "text-cyan-400";
+            let prefix = "[Ingested]";
+            
+            const hasProcessing = eventObj.payload && eventObj.payload._processing;
+            const anomalyDetected = hasProcessing && eventObj.payload._processing.anomaly_detected;
+
+            if (anomalyDetected) {
+                colorClass = "text-rose-400 font-extrabold animate-pulse bg-rose-950/20 px-1.5 py-0.5 rounded border border-rose-900/30";
+                prefix = "[CRITICAL ANOMALY ALERT]";
+            } else if (eventObj.event_type === "payment.processed") {
+                colorClass = "text-emerald-400";
+            }
+
+            const formattedJson = JSON.stringify(eventObj);
+            const line = `<div class="${colorClass}">${prefix} Type: ${eventObj.event_type} | UserID: ${eventObj.user_id} | Raw: ${formattedJson}</div>`;
+            
+            logConsole.innerHTML += line;
+            while (logConsole.childElementCount > 30) {
+                logConsole.removeChild(logConsole.firstChild);
+            }
+            logConsole.scrollTop = logConsole.scrollHeight;
+        }
+
+        async function postTestEvent(type, value = null) {
+            if (!accessToken) return;
+            const payload = {};
+            if (type === "payment.processed" && value) {
+                payload["value"] = value;
+                payload["transaction_id"] = `tx_${Math.floor(100000 + Math.random() * 900000)}`;
+            } else if (type === "page.view") {
+                payload["route"] = "/dashboard";
+                payload["user_agent"] = "Chrome/MacOS";
+            } else if (type === "user.signup") {
+                payload["email"] = "dev_test@example.com";
+                payload["plan"] = "pro";
+            }
+            
+            try {
+                const response = await fetch("/api/v1/events/ingest", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ event_type: type, payload: payload })
+                });
+                
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || "API Ingestion failed");
+                }
+                
+                await fetchAnalyticsSummary();
+                statActive.innerText = activeUsers;
+            } catch (err) {
+                logConsole.innerHTML += `<div class="text-rose-400">[Client Ingestion Error]: ${err.message}</div>`;
+                logConsole.scrollTop = logConsole.scrollHeight;
+            }
+        }
+
+        setInterval(() => {
+            if (!wsConn || wsConn.readyState !== WebSocket.OPEN) return;
+            const rate = localEventCountLastSec;
+            statRate.innerHTML = `${rate.toFixed(1)}<span class="text-xs font-normal text-slate-500">/s</span>`;
+            localEventCountLastSec = 0;
+
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+            
+            throughputHistory.shift();
+            throughputHistory.push(rate);
+            throughputLabels.shift();
+            throughputLabels.push(timeStr);
+
+            if (throughputChartInstance) throughputChartInstance.update();
+        }, 1000);
+
+        function setupCharts() {
+            if (throughputChartInstance) throughputChartInstance.destroy();
+            if (distributionChartInstance) distributionChartInstance.destroy();
+
+            const ctxThroughput = document.getElementById("throughputChart").getContext("2d");
+            throughputChartInstance = new Chart(ctxThroughput, {
+                type: 'line',
+                data: {
+                    labels: throughputLabels,
+                    datasets: [{
+                        label: 'Events / Second',
+                        data: throughputHistory,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                            ticks: { color: '#64748b', font: { size: 10 } },
+                            beginAtZero: true
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 10 }, maxTicksLimit: 6 }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const ctxDistribution = document.getElementById("distributionChart").getContext("2d");
+            distributionChartInstance = new Chart(ctxDistribution, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(eventTypesCount),
+                    datasets: [{
+                        data: Object.values(eventTypesCount),
+                        backgroundColor: [
+                            'rgba(6, 182, 212, 0.75)',  // Cyan
+                            'rgba(99, 102, 241, 0.75)',  // Indigo
+                            'rgba(16, 185, 129, 0.75)',  // Emerald
+                            'rgba(244, 63, 94, 0.75)'    // Rose
+                        ],
+                        borderColor: '#020617',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#94a3b8', font: { size: 11 }, padding: 15 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDistributionChart() {
+            if (!distributionChartInstance) return;
+            distributionChartInstance.data.labels = Object.keys(eventTypesCount);
+            distributionChartInstance.data.datasets[0].data = Object.values(eventTypesCount);
+            distributionChartInstance.update();
+        }
+
+        if (accessToken) {
+            initDashboard();
+        } else {
+            showAuth();
+        }
+    </script>
+</body>
+</html>
